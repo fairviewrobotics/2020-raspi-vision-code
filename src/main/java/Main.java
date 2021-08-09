@@ -389,9 +389,11 @@ public final class Main {
     // start image processing on camera 0 if present
     if (cameras.size() >= 1) {
       VisionThread highGoalVisionThread = new VisionThread(cameras.get(0),
-              new HighGoalPipeline(), pipeline -> { });
+              new HighGoalPipeline(), pipeline -> {
+      });
       highGoalVisionThread.start();
-
+    }
+    if (cameras.size() >= 2) {
       VisionThread ballVisionThread = new VisionThread(cameras.get(1),
               new BallPipeline(), pipeline -> { });
       ballVisionThread.start();
