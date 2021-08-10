@@ -324,6 +324,33 @@ public final class Main {
     }
   }
 
+  // ball vision pipeline
+  public static class BallPipeline implements VisionPipeline {
+    static NetworkTableInstance inst = NetworkTableInstance.getDefault();
+    static NetworkTable table;
+    static NetworkTableEntry yaw;
+    static NetworkTableEntry ballFound;
+    static NetworkTableEntry ballHeight;
+
+    static {
+      table = inst.getTable("ball-vision");
+      yaw = table.getEntry("yaw");
+      ballFound = table.getEntry("ballFound");
+      ballHeight = table.getEntry("ballHeight");
+    }
+
+    public BallPipeline(){
+    }
+
+    public void process(Mat mat) {
+      TargetLocation res = BallVision.process(mat);
+
+      yaw.setDouble(res.yaw);
+      ballFound.setBoolean(res.h * res.w >= BallVision.kBallAreaThresholdNorm);
+      ballHeight.setDouble(res.h);
+    }
+  }
+
 
   /**
    * Main.
@@ -361,9 +388,15 @@ public final class Main {
 
     // start image processing on camera 0 if present
     if (cameras.size() >= 1) {
-      VisionThread visionThread = new VisionThread(cameras.get(0),
-              new HighGoalPipeline(), pipeline -> { });
-      visionThread.start();
+      VisionThread highGoalVisionThread = new VisionThread(cameras.get(0),
+              new HighGoalPipeline(), pipeline -> {
+      });
+      highGoalVisionThread.start();
+    }
+    if (cameras.size() >= 2) {
+      VisionThread ballVisionThread = new VisionThread(cameras.get(1),
+              new BallPipeline(), pipeline -> { });
+      ballVisionThread.start();
     }
 
     // loop forever
