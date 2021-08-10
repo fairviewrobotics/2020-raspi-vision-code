@@ -346,7 +346,7 @@ public final class Main {
       TargetLocation res = BallVision.process(mat);
 
       yaw.setDouble(res.yaw);
-      ballFound.setBoolean(res.h * res.w >= 100);
+      ballFound.setBoolean(res.h * res.w >= BallVision.kBallAreaThresholdNorm);
       ballHeight.setDouble(res.h);
     }
   }

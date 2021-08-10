@@ -13,6 +13,9 @@ import org.opencv.objdetect.*;
 
 public class BallVision {
 
+    public static final double kBallAreaThresholdNorm = 0.1;
+    public static double ballAreaThreshold = -1.0; // set later when image is passed
+
     static class MatContourPair {
         public Mat mat;
         public List<MatOfPoint> contours;
@@ -23,40 +26,10 @@ public class BallVision {
         }
     }
 
-    private static TargetLocation target;
-
-    //Load test images, process, and write output images. To-Do: Replace with camera input
-    public static void main(String[] args) {
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-
-        if (args[0] == "TEST") {
-            long hm_images = 18;
-
-            // test using test_inputs, writing to test_outputs
-            for (int i = 1; i <= hm_images; i++) {
-                Mat input = Imgcodecs.imread("src/test_inputs/BallImage" + i + ".jpg");
-                Mat output = decoratePipelineOutput(ballDetectPipeline(input));
-                Imgcodecs.imwrite("src/test_outputs/Output Image " + i + ".jpg",
-                        output);
-            }
-            System.out.println("Done");
-        } else {
-            Mat image = Imgcodecs.imread(args[0]);
-            MatContourPair result = ballDetectPipeline(image);
-
-            double yaw = getTargetYaw(
-                    findBestBallTarget(result.contours),
-                    new Size(result.mat.width(), result.mat.height()),
-                    // the following are copied from HighGoalVision.java
-                    Math.toRadians(68.5),
-                    16.0,
-                    9.0
-            );
-        }
-    }
-
     public static TargetLocation process(Mat mat) {
         MatContourPair matContourPair = ballDetectPipeline(mat);
+        ballAreaThreshold = kBallAreaThresholdNorm * matContourPair.mat.width() * matContourPair.mat.height();
+
         Rect best = findBestBallTarget(matContourPair.contours);
 
         double yaw = getTargetYaw(
@@ -67,11 +40,15 @@ public class BallVision {
                 9.0
         );
 
+        double cam_w = (double)mat.width();
+        double cam_h = (double)mat.height();
+
+        // return normalized target location
         return new TargetLocation(
-                best.x,
-                best.y,
-                best.width,
-                best.height,
+                best.x / cam_w,
+                best.y / cam_h,
+                best.width / cam_w,
+                best.height / cam_h,
                 yaw,
                 0 // pitch is irrelevant so just pass 0
         );
@@ -109,13 +86,12 @@ public class BallVision {
                 new Scalar(hsvThresholdHue[1], hsvThresholdSaturation[1], hsvThresholdValue[1]), hsvOutput);
 
         // Find and draw contours
-        Imgcodecs.imwrite("HSV Output.jpg", hsvOutput);
         Mat contourInput = hsvOutput;
         List<MatOfPoint> contours = new ArrayList<>();
         Mat hierarchy = new Mat();
         contours.clear();
         Imgproc.findContours(contourInput, contours, hierarchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
-        Imgproc.drawContours(resizedOutput, contours, -1, new Scalar(0, 0, 255), 1);
+        //Imgproc.drawContours(resizedOutput, contours, -1, new Scalar(0, 0, 255), 1);
 
         return new MatContourPair(resizedOutput, contours);
     }
@@ -165,8 +141,6 @@ public class BallVision {
 
 
         // Determine the best bounding rect around the ball contours by width
-        long best_centerx = 0;
-        long best_centery = 0;
         long largest_width = 0;
         Rect bestBoundRect = new Rect();
 
@@ -189,15 +163,12 @@ public class BallVision {
                 //in_tolerance = boundRect.width >= boundRect.height;*/
             }
 
-            if (ballArea >= 100 && in_tolerance) { // TODO: stop this magic number bullshit
+            if (ballArea >= ballAreaThreshold && in_tolerance) {
                 // create target location
 //                Imgproc.rectangle(resizedOutput,
 //                        new Point(boundRect.x,boundRect.y),
 //                        new Point(boundRect.x+boundRect.width,boundRect.y+boundRect.height),
 //                        new Scalar(255,0,0),5);
-
-                long centerx = boundRect.x + boundRect.width / 2;
-                long centery = boundRect.y + boundRect.height / 2;
 
 //                System.out.println("Target found!");
 //                System.out.println("Center at (" + centerx + ", " + centery + ")");
@@ -207,8 +178,6 @@ public class BallVision {
 
                 // Determine if this is a better target based on width
                 if (boundRect.width >= largest_width) {
-                    best_centerx = centerx;
-                    best_centery = centery;
                     largest_width = boundRect.width;
                     bestBoundRect = boundRect;
                 }

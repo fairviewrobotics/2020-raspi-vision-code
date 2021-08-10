@@ -22,20 +22,20 @@ public class HighGoalVision {
 
   /* calculate yaw or pitch (in radians) */
   static double calcAngle(long val, long centerVal, double focalLen) {
-    return Math.atan(((double)(val - centerVal)) / focalLen);
+    return Math.atan(((double) (val - centerVal)) / focalLen);
   }
 
   public static List<TargetLocation> highGoalDetect(
-    Mat image,
-    Size resize,
-    Scalar lowHsv,
-    Scalar highHsv,
-    long blurRadius,
-    long reblurRadius,
-    double minAreaRatio,
-    double diagFieldView,
-    double aspectH,
-    double aspectV
+          Mat image,
+          Size resize,
+          Scalar lowHsv,
+          Scalar highHsv,
+          long blurRadius,
+          long reblurRadius,
+          double minAreaRatio,
+          double diagFieldView,
+          double aspectH,
+          double aspectV
   ) {
 
     /* calculate camera information */
@@ -78,11 +78,11 @@ public class HighGoalVision {
 
     ArrayList<TargetLocation> targets = new ArrayList<>();
 
-    for(MatOfPoint cnt : contours) {
+    for (MatOfPoint cnt : contours) {
       double hullArea = Imgproc.contourArea(cnt);
       double imageArea = resize.width * resize.height;
       /* check target is largest than minimum size */
-      if(hullArea / imageArea >= minAreaRatio) {
+      if (hullArea / imageArea >= minAreaRatio) {
         /* find bounding rect on target */
         Rect boundRect = Imgproc.boundingRect(cnt);
         /* because vision target is just on the lower half of the real target, adjust box to include top half */
@@ -90,35 +90,26 @@ public class HighGoalVision {
         boundRect.height *= 1.9;
 
         Imgproc.rectangle(imageRs, new Point(boundRect.x, boundRect.y), new Point(boundRect.x + boundRect.width, boundRect.y + boundRect.height), new Scalar(0, 0, 255), 2);
-        Imgcodecs.imwrite("dst.jpg", imageRs);
-
 
         /* find center of target */
         long cx = boundRect.x + boundRect.width / 2;
         long cy = boundRect.y + boundRect.height / 2;
 
         /* calculate yaw + pitch offset from center (in radians) */
-        double yaw = calcAngle(cx, (long)resize.width/2, hFocalLen);
-        double pitch = calcAngle(cy, (long)resize.height/2, vFocalLen);
+        double yaw = calcAngle(cx, (long) resize.width / 2, hFocalLen);
+        double pitch = calcAngle(cy, (long) resize.height / 2, vFocalLen);
 
         /* construct target information */
         targets.add(new TargetLocation(
-          ((double)boundRect.x) / ((double)resize.width),
-          ((double)boundRect.y) / ((double)resize.height),
-          ((double)boundRect.width) / ((double) resize.width),
-          ((double)boundRect.height) / ((double)resize.height),
-          yaw, 
-          pitch));
+                ((double) boundRect.x) / ((double) resize.width),
+                ((double) boundRect.y) / ((double) resize.height),
+                ((double) boundRect.width) / ((double) resize.width),
+                ((double) boundRect.height) / ((double) resize.height),
+                yaw,
+                pitch));
       }
     }
 
     return targets;
-  }
-
-  public static void main(String[] args) {
-    System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-    Mat image = Imgcodecs.imread(args[0]);
-
-    List<TargetLocation> targets = highGoalDetect(image, new Size(320, 240), new Scalar(53, 213, 100), new Scalar(100, 255, 255), 5, 5, 0.001, Math.toRadians(68.5), 16.0, 9.0);
   }
 }
